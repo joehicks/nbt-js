@@ -18,7 +18,8 @@ var types = exports.types =
 	['string'   , null       , null      , null  ],
 	['list'     , 'list'     , null      , null  ],
 	['compound' , null       , null      , null  ],
-	['intArray' , 'list'     , 'int'     , null  ]
+	['intArray' , 'list'     , 'int'     , null  ],
+	['longArray', 'list'     , 'long'    , null  ]
 ];
 
 types.forEach(function(typeData, typeIndex)
@@ -49,13 +50,18 @@ var Reader = exports.Reader = function(buffer)
 
 function read(reader, object)
 {
-	var type = types[reader.byte().payload];
+	const t = reader.byte().payload
+	var type = types[t];
 	if (type !== types.end)
 	{
-		var name = reader.string().payload;
-		var result = reader[type.name]();
-		object.schema[name] = result.schema;
-		object.payload[name] = result.payload;
+		try {
+			var name = reader.string().payload;
+			var result = reader[type.name]();
+			object.schema[name] = result.schema;
+			object.payload[name] = result.payload;
+		} catch (e) {
+			console.log(`Unknown type number: ${t}`)
+		}
 	}
 	return type;
 }
@@ -67,6 +73,10 @@ types.forEach(function(type)
 		case 'word':
 			Reader.prototype[type.name] = function()
 			{
+				if (!this.buffer) {
+					this.offset += type.size
+					return { schema: type.name, payload: 0 };
+				}
 				var word = this.buffer['read' + type.format](this.offset);
 				this.offset += type.size;
 				return { schema: type.name, payload: word };
